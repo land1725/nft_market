@@ -1,0 +1,36 @@
+node_modules
+.env
+package-lock.json
+
+# Hardhat files
+/cache
+/artifacts
+
+# TypeChain files
+/typechain
+/typechain-types
+
+# solidity-coverage files
+/coverage
+/coverage.json
+
+# Hardhat Ignition default folder for deployments against a local node
+ignition/deployments/chain-31337
+
+# 开发工具生成的文件
+.deps/
+.states/
+
+# 临时文件
+*.tmp
+*.log
+
+# IDE 文件
+.vscode/
+.idea/
+
+# 测试覆盖率
+coverage/
+
+# 部署相关
+deployments/
