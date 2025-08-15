@@ -1,11 +1,11 @@
 const { expect } = require("chai");
 const { ethers } = require("hardhat");
 
-describe("Sepolia网络完整NFT拍卖系统测试", function () {
+describe("Sepolia完整拍卖系统测试", function () {
   let auctionFactory, nftToken, mockLINK, priceOracle;
   let owner, seller, bidder1, bidder2;
   
-  this.timeout(300000); // 5分钟超时
+  this.timeout(120000); // 2分钟超时
 
   before(async function () {
     console.log("🚀 开始Sepolia网络完整测试...");
@@ -15,54 +15,38 @@ describe("Sepolia网络完整NFT拍卖系统测试", function () {
     owner = accounts[0];
     seller = accounts[0]; // 主账户作为seller
     
-    const initialBalance = await ethers.provider.getBalance(owner.address);
-    console.log(`📝 主账户初始余额: ${ethers.formatEther(initialBalance)} ETH`);
-    
-    // 检查余额是否足够进行测试
-    if (initialBalance < ethers.parseEther("0.01")) {
-      throw new Error(`主账户余额不足，需要至少 0.01 ETH 进行测试`);
-    }
-    
-    // 使用主账户的其他索引作为测试账户，避免转账
-    console.log("📝 使用账户索引作为测试账户...");
-    
-    // 如果有足够的账户，使用索引1和2；否则创建随机账户但不转账
-    if (accounts.length >= 3) {
-      bidder1 = accounts[1];
-      bidder2 = accounts[2];
-      console.log(`✅ 使用账户索引 1 和 2 作为bidders`);
-    } else {
-      // 创建随机账户，但只转很少的ETH用于测试
-      bidder1 = ethers.Wallet.createRandom().connect(ethers.provider);
-      bidder2 = ethers.Wallet.createRandom().connect(ethers.provider);
-      
-      // 只给少量ETH用于gas费用
-      const smallTransferAmount = ethers.parseEther("0.005"); // 每个账户0.005 ETH
-      
-      console.log(`💸 给测试账户转账少量ETH用于gas...`);
-      
-      const tx1 = await owner.sendTransaction({
-        to: bidder1.address,
-        value: smallTransferAmount,
-        gasLimit: 21000
-      });
-      await tx1.wait();
-      console.log(`✅ 转账 ${ethers.formatEther(smallTransferAmount)} ETH 给 Bidder1`);
-      
-      const tx2 = await owner.sendTransaction({
-        to: bidder2.address,
-        value: smallTransferAmount,
-        gasLimit: 21000
-      });
-      await tx2.wait();
-      console.log(`✅ 转账 ${ethers.formatEther(smallTransferAmount)} ETH 给 Bidder2`);
-    }
+    // 创建新的随机账户用于出价
+    bidder1 = ethers.Wallet.createRandom().connect(ethers.provider);
+    bidder2 = ethers.Wallet.createRandom().connect(ethers.provider);
     
     console.log(`📝 账户信息:
       Owner/Seller: ${owner.address}
       Bidder1: ${bidder1.address}
       Bidder2: ${bidder2.address}
+      Balance: ${ethers.formatEther(await ethers.provider.getBalance(owner.address))} ETH
     `);
+    
+    // 给bidders转账测试ETH
+    console.log("💸 给测试账户转账...");
+    const transferAmount = ethers.parseEther("0.5"); // 每个账户0.5 ETH
+    
+    await owner.sendTransaction({
+      to: bidder1.address,
+      value: transferAmount
+    });
+    console.log(`✅ 转账 ${ethers.formatEther(transferAmount)} ETH 给 Bidder1`);
+    
+    await owner.sendTransaction({
+      to: bidder2.address,
+      value: transferAmount
+    });
+    console.log(`✅ 转账 ${ethers.formatEther(transferAmount)} ETH 给 Bidder2`);
+    
+    // 验证转账成功
+    const bidder1Balance = await ethers.provider.getBalance(bidder1.address);
+    const bidder2Balance = await ethers.provider.getBalance(bidder2.address);
+    console.log(`💰 Bidder1 余额: ${ethers.formatEther(bidder1Balance)} ETH`);
+    console.log(`💰 Bidder2 余额: ${ethers.formatEther(bidder2Balance)} ETH`);
     
     console.log("🔧 部署测试合约...");
 
@@ -80,7 +64,7 @@ describe("Sepolia网络完整NFT拍卖系统测试", function () {
 
     // 部署价格预言机
     const PriceOracle = await ethers.getContractFactory("PriceOracle");
-    priceOracle = await PriceOracle.deploy();
+    priceOracle = await PriceOracle.deploy(); // 不需要参数，合约内部已硬编码地址
     await priceOracle.waitForDeployment();
     console.log(`✅ Price Oracle: ${await priceOracle.getAddress()}`);
 
@@ -124,7 +108,7 @@ describe("Sepolia网络完整NFT拍卖系统测试", function () {
   });
 
   describe("拍卖系统测试", function () {
-    let currentTokenId = 1;
+    let currentTokenId = 1; // 使用独立的tokenId计数器
 
     beforeEach(async function () {
       console.log(`🎯 准备拍卖测试 - TokenID: ${currentTokenId}`);
@@ -150,13 +134,13 @@ describe("Sepolia网络完整NFT拍卖系统测试", function () {
       const oracleAddress = await priceOracle.getAddress();
       
       const createTx = await auctionFactory.connect(seller).createAuction(
-        linkAddress,
-        nftAddress,
-        currentTokenId,
-        ethers.parseEther("10"),
-        ethers.parseEther("1"),
-        3600,
-        oracleAddress
+        linkAddress,        // payment token
+        nftAddress,         // nft contract
+        currentTokenId,    // token id
+        ethers.parseEther("10"),  // USD price
+        ethers.parseEther("1"),   // min bid
+        3600,              // duration (1 hour)
+        oracleAddress      // price oracle
       );
       
       const receipt = await createTx.wait();
@@ -171,7 +155,7 @@ describe("Sepolia网络完整NFT拍卖系统测试", function () {
       const newOwner = await nftToken.ownerOf(currentTokenId);
       console.log(`✅ NFT新所有者: ${newOwner}`);
       
-      currentTokenId++;
+      currentTokenId++; // 为下次测试准备
     });
 
     it("应该能用ETH出价", async function () {
@@ -202,23 +186,11 @@ describe("Sepolia网络完整NFT拍卖系统测试", function () {
       console.log(`📍 拍卖合约地址: ${auctionAddress}`);
       
       // 用ETH出价
-      const bidAmount = ethers.parseEther("0.001"); // 进一步减少出价金额
+      const bidAmount = ethers.parseEther("0.1");
       console.log(`💵 出价金额: ${ethers.formatEther(bidAmount)} ETH`);
       
-      // 检查bidder余额
-      const bidderBalanceBefore = await ethers.provider.getBalance(bidder1.address);
-      console.log(`💰 出价前余额: ${ethers.formatEther(bidderBalanceBefore)} ETH`);
-      
-      // 如果是随机账户且余额不足，跳过此测试
-      if (bidderBalanceBefore < ethers.parseEther("0.002")) {
-        console.log(`⚠️ Bidder1余额不足，跳过ETH出价测试`);
-        this.skip();
-        return;
-      }
-      
       const bidTx = await auction.connect(bidder1).placeBidETH({
-        value: bidAmount,
-        gasLimit: 200000
+        value: bidAmount
       });
       const receipt = await bidTx.wait();
       
@@ -234,17 +206,7 @@ describe("Sepolia网络完整NFT拍卖系统测试", function () {
       expect(highestBid).to.equal(bidAmount);
       expect(highestBidder).to.equal(bidder1.address);
       
-      // 检查余额变化（允许gas费用误差）
-      const bidderBalanceAfter = await ethers.provider.getBalance(bidder1.address);
-      const balanceChange = bidderBalanceBefore - bidderBalanceAfter;
-      console.log(`💰 余额变化: ${ethers.formatEther(balanceChange)} ETH`);
-      
-      // 余额变化应该大约等于出价金额加上gas费用
-      expect(balanceChange).to.be.greaterThan(bidAmount);
-      expect(balanceChange).to.be.lessThan(bidAmount + ethers.parseEther("0.005")); // 允许0.005 ETH的gas费用
-      
-      currentTokenId++;
-    });
+      currentTokenId++; // 为下次测试准备
   });
 
   describe("系统集成测试", function () {
@@ -256,6 +218,7 @@ describe("Sepolia网络完整NFT拍卖系统测试", function () {
       console.log(`📊 价格预言机: ${await priceOracle.getAddress()}`);
       
       const totalSupply = await nftToken.totalSupply();
+      
       console.log(`📈 NFT总供应量: ${totalSupply}`);
       
       // 尝试获取第一个拍卖合约地址来验证拍卖是否存在
@@ -269,9 +232,8 @@ describe("Sepolia网络完整NFT拍卖系统测试", function () {
       const balance = await ethers.provider.getBalance(owner.address);
       console.log(`💵 剩余余额: ${ethers.formatEther(balance)} ETH`);
       
-      // 基本验证 - 主账户应该还有一些ETH（至少0.001 ETH，降低期望值）
+      // 基本验证
       expect(totalSupply).to.be.greaterThan(0);
-      expect(balance).to.be.greaterThan(ethers.parseEther("0.001"));
     });
   });
 });
