@@ -8,12 +8,23 @@ describe("Auction Flow Tests", function () {
   let tokenId = 0;
 
   before(async function () {
-    [owner, seller, bidder1, bidder2, bidder3] = await ethers.getSigners();
+    const accounts = await ethers.getSigners();
+    owner = accounts[0];
+    seller = accounts[1] || accounts[0]; // 如果只有一个账户，使用owner
+    bidder1 = accounts[2] || accounts[0];
+    bidder2 = accounts[3] || accounts[0];
+    bidder3 = accounts[4] || accounts[0];
+    
+    console.log(`📝 账户信息: 
+      Owner: ${owner.address}
+      Seller: ${seller.address}
+      Bidder1: ${bidder1.address}
+    `);
     
     console.log("🔧 部署测试合约...");
 
     // 部署MockLINK代币
-    const MockLINK = await ethers.getContractFactory("MockLINK");
+    const MockLINK = await ethers.getContractFactory("contracts/mock/MockLINK.sol:MockLINK");
     mockLINK = await MockLINK.deploy();
     await mockLINK.waitForDeployment();
 
@@ -36,15 +47,30 @@ describe("Auction Flow Tests", function () {
   });
 
   beforeEach(async function () {
+    console.log(`🎨 准备测试数据 - TokenID: ${tokenId}`);
+    
     // 铸造NFT给seller
-    await nftToken.safeMint(seller.address, `ipfs://test${tokenId}`);
+    const mintTx = await nftToken.safeMint(seller.address, `ipfs://test${tokenId}`);
+    await mintTx.wait();
+    console.log(`✅ NFT #${tokenId} 铸造给 ${seller.address}`);
+    
+    // 验证NFT所有权
+    const owner = await nftToken.ownerOf(tokenId);
+    console.log(`✅ NFT #${tokenId} 所有者: ${owner}`);
     
     // seller授权NFT给拍卖工厂
-    await nftToken.connect(seller).approve(await auctionFactory.getAddress(), tokenId);
+    const factoryAddress = await auctionFactory.getAddress();
+    const approveTx = await nftToken.connect(seller).approve(factoryAddress, tokenId);
+    await approveTx.wait();
+    console.log(`✅ NFT #${tokenId} 已授权给拍卖工厂`);
     
     // 为bidders分发LINK代币
-    await mockLINK.transfer(bidder1.address, ethers.parseEther("1000"));
-    await mockLINK.transfer(bidder2.address, ethers.parseEther("1000"));
+    if (bidder1.address !== owner) {
+      await mockLINK.transfer(bidder1.address, ethers.parseEther("1000"));
+    }
+    if (bidder2.address !== owner) {
+      await mockLINK.transfer(bidder2.address, ethers.parseEther("1000"));
+    }
     
     tokenId++; // 为下次测试准备新的tokenId
   });
