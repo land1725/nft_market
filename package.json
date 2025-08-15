@@ -1,12 +1,23 @@
 {
   "name": "hardhat-project",
+  "scripts": {
+    "deploy:ccip-local": "npx hardhat run scripts/deploy-ccip-local.js --network localhost",
+    "test:ccip-local": "npx hardhat run scripts/test-ccip-local.js --network localhost",
+    "test:auction": "npx hardhat test test/auction-flow.test.js",
+    "compile": "npx hardhat compile",
+    "node": "npx hardhat node"
+  },
   "devDependencies": {
     "@chainlink/contracts": "^1.4.0",
+    "@chainlink/contracts-ccip": "^1.6.0",
     "@nomicfoundation/hardhat-ethers": "^3.1.0",
     "@nomicfoundation/hardhat-toolbox": "^6.1.0",
     "@openzeppelin/contracts": "^5.4.0",
     "@openzeppelin/hardhat-upgrades": "^3.9.1",
     "hardhat": "^2.26.2",
     "hardhat-deploy": "^1.0.4"
+  },
+  "dependencies": {
+    "dotenv": "^17.2.1"
   }
 }
