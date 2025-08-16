@@ -13,16 +13,21 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
 
   // 在开发网络中部署Mock合约
   if (developmentChains.includes(network.name)) {
-    log("\n📦 部署 MockLINK...");
-    const mockLINK = await deploy("MockLINK", {
+    log("\n📦 部署 MockLinkToken...");
+    const mockLINK = await deploy("MockLinkToken", {
       from: deployer,
-      args: [],
+      args: [
+        "Mock LINK",
+        "LINK", 
+        18,
+        "1000000000000000000000000" // 1M LINK
+      ],
       log: true,
       waitConfirmations: 1,
     });
 
-    log("\n🔮 部署 MockPriceOracle...");
-    const mockPriceOracle = await deploy("MockPriceOracle", {
+    log("\n🔮 部署 PriceOracle...");
+    const mockPriceOracle = await deploy("PriceOracle", {
       from: deployer,
       args: [],
       log: true,
@@ -30,8 +35,8 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
     });
 
     log("\n✅ Mock合约部署完成!");
-    log(`MockLINK: ${mockLINK.address}`);
-    log(`MockPriceOracle: ${mockPriceOracle.address}`);
+    log(`MockLinkToken: ${mockLINK.address}`);
+    log(`PriceOracle: ${mockPriceOracle.address}`);
     log(`固定价格: 1 ETH = 2000 USD, 1 LINK = 15 USD`);
   } else {
     log("\n⏭️  生产网络，跳过Mock合约部署");

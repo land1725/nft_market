@@ -81,8 +81,8 @@ describe("Auction Flow Tests", function () {
         await mockLINK.getAddress(),
         await nftToken.getAddress(),
         0,
-        ethers.parseEther("10"), // 10 USD起拍价
-        ethers.parseEther("1"),  // 1 USD加价幅度
+        ethers.parseUnits("10", 6), // 10 USD起拍价 (6位小数)
+        ethers.parseUnits("1", 6),  // 1 USD加价幅度 (6位小数)
         3600, // 1小时
         await priceOracle.getAddress()
       );
